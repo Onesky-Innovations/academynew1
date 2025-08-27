@@ -28,7 +28,7 @@ class _AcademyDashboardState extends State<AcademyDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Academy Dashboard")),
+      // appBar: AppBar(title: const Text("Academy Dashboard")),
       body: _pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,

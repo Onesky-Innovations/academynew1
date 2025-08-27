@@ -4,6 +4,7 @@ import 'package:academynew1/theme/app_theme.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'add_schedule_page.dart';
 import 'edit_schedule_page.dart';
+import 'package:academynew1/theme/ModernAppTheme.dart';
 
 class SchedulePage extends StatefulWidget {
   final String academyUid;
@@ -22,7 +23,7 @@ class _SchedulePageState extends State<SchedulePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: LinkColor,
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('academies')
