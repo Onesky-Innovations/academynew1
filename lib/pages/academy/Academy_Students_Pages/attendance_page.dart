@@ -26,6 +26,7 @@ class _AttendancePageState extends State<AttendancePage> {
   String get dateKey =>
       "${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}";
 
+  /// ✅ Always update attendance as a Map (prevents int/string issues)
   Future<void> _markAttendance(String studentId, bool isPresent) async {
     try {
       await _firestore
@@ -33,7 +34,11 @@ class _AttendancePageState extends State<AttendancePage> {
           .doc(widget.academyUid)
           .collection('students')
           .doc(studentId)
-          .update({"attendance.$dateKey": isPresent ? "present" : "absent"});
+          .set({
+        "attendance": {
+          dateKey: isPresent ? "present" : "absent",
+        }
+      }, SetOptions(merge: true)); // ✅ ensures attendance stays a Map
     } catch (e) {
       debugPrint("Error marking attendance: $e");
     }
@@ -129,9 +134,8 @@ class _AttendancePageState extends State<AttendancePage> {
                         .collection('students')
                         .get();
                     setState(() {
-                      selectedStudents = snapshot.docs
-                          .map((doc) => doc.id)
-                          .toSet();
+                      selectedStudents =
+                          snapshot.docs.map((doc) => doc.id).toSet();
                     });
                   },
                 ),
@@ -178,8 +182,13 @@ class _AttendancePageState extends State<AttendancePage> {
                     final data = student.data() as Map<String, dynamic>;
                     final name = data['name'] ?? 'Unknown';
 
+                    // ✅ Safe attendance read (prevents _TypeError)
+                    final rawAttendance = data['attendance'];
                     final attendance =
-                        (data['attendance'] ?? {}) as Map<String, dynamic>;
+                        (rawAttendance is Map<String, dynamic>)
+                            ? rawAttendance
+                            : <String, dynamic>{};
+
                     final todayStatus = attendance[dateKey] ?? 'absent';
 
                     final isSelected = selectedStudents.contains(student.id);

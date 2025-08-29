@@ -22,7 +22,7 @@ class _SchedulePageState extends State<SchedulePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: LinkColor,
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('academies')
