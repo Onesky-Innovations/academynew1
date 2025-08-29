@@ -25,7 +25,7 @@ class _StudentFormState extends State<StudentForm> {
   late TextEditingController _ageController;
   String _gender = "Male";
   late TextEditingController _categoryController;
-  late TextEditingController _feeController;
+  late TextEditingController _feeController; // For first month's fee
   late TextEditingController _emailController;
   late TextEditingController _whatsappController;
   bool _suspended = false;
@@ -81,19 +81,33 @@ class _StudentFormState extends State<StudentForm> {
               .collection('students')
               .doc(widget.studentId);
 
+    // Save student data without fee
     await doc.set({
       'name': _nameController.text.trim(),
       'school': _schoolController.text.trim(),
       'age': int.tryParse(_ageController.text.trim()) ?? 0,
       'gender': _gender,
       'category': _categoryController.text.trim(),
-      'fee': double.tryParse(_feeController.text.trim()) ?? 0.0,
       'email': _emailController.text.trim(),
       'whatsapp': _whatsappController.text.trim(),
       'password': password,
       'suspended': _suspended,
       'attendance': widget.studentData?['attendance'] ?? 0,
     });
+
+    // If adding a new student, create first month's fee in subcollection
+    if (widget.studentId == null && _feeController.text.isNotEmpty) {
+      final feeAmount = double.tryParse(_feeController.text.trim()) ?? 0.0;
+      await doc.collection('fees').add({
+        'amount': feeAmount,
+        'paidAmount': 0.0,
+        'status': 'unpaid',
+        'dueDate': DateTime.now().add(
+          const Duration(days: 30),
+        ), // example next month
+        'paidDate': null,
+      });
+    }
 
     Navigator.pop(context);
 
@@ -109,17 +123,10 @@ class _StudentFormState extends State<StudentForm> {
           actions: [
             TextButton(
               onPressed: () {
-                if (mounted) {
-                  Navigator.pop(context);
-                }
+                if (mounted) Navigator.pop(context);
               },
-              child: const Text("Cancel"),
+              child: const Text("OK"),
             ),
-
-            // TextButton(
-            //   onPressed: () => Navigator.pop(context),
-            //   child: const Text("OK"),
-            // ),
           ],
         ),
       );
@@ -162,9 +169,10 @@ class _StudentFormState extends State<StudentForm> {
                 controller: _categoryController,
                 decoration: const InputDecoration(labelText: "Category"),
               ),
+              // Enter first month's fee only
               TextFormField(
                 controller: _feeController,
-                decoration: const InputDecoration(labelText: "Individual Fee"),
+                decoration: const InputDecoration(labelText: "First Month Fee"),
                 keyboardType: TextInputType.number,
               ),
               TextFormField(

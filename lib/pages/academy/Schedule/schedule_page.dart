@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:academynew1/theme/app_theme.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'add_schedule_page.dart';
 import 'edit_schedule_page.dart';

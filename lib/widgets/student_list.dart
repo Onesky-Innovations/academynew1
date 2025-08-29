@@ -1,19 +1,171 @@
+// import 'package:flutter/material.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
+
+// class StudentList extends StatelessWidget {
+//   final String academyUid;
+//   final String filterMode;
+//   final String searchQuery;
+//   final bool sortAsc;
+
+//   const StudentList({
+//     super.key,
+//     required this.academyUid,
+//     required this.filterMode,
+//     required this.searchQuery,
+//     required this.sortAsc,
+//   });
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final studentsRef = FirebaseFirestore.instance
+//         .collection("academies")
+//         .doc(academyUid)
+//         .collection("students");
+
+//     return StreamBuilder<QuerySnapshot>(
+//       stream: studentsRef.snapshots(),
+//       builder: (context, snapshot) {
+//         if (!snapshot.hasData)
+//           return const Center(child: CircularProgressIndicator());
+
+//         List<QueryDocumentSnapshot> students = snapshot.data!.docs;
+
+//         // Apply search filter
+//         if (searchQuery.isNotEmpty) {
+//           students = students.where((doc) {
+//             final data = doc.data() as Map<String, dynamic>;
+//             final name = (data['name'] ?? "").toString().toLowerCase();
+//             return name.contains(searchQuery.toLowerCase());
+//           }).toList();
+//         }
+
+//         if (students.isEmpty) {
+//           return const Center(
+//             child: Text(
+//               "No students found",
+//               style: TextStyle(color: Colors.white70),
+//             ),
+//           );
+//         }
+
+//         // Sort students alphabetically
+//         students.sort((a, b) {
+//           final nameA = (a['name'] ?? "").toString().toLowerCase();
+//           final nameB = (b['name'] ?? "").toString().toLowerCase();
+//           return sortAsc ? nameA.compareTo(nameB) : nameB.compareTo(nameA);
+//         });
+
+//         return ListView.builder(
+//           padding: const EdgeInsets.all(8),
+//           itemCount: students.length,
+//           itemBuilder: (context, index) {
+//             final studentDoc = students[index];
+//             final data = studentDoc.data() as Map<String, dynamic>;
+//             final name = data['name'] ?? "Unnamed";
+
+//             // Fetch fees subcollection for each student
+//             return FutureBuilder<QuerySnapshot>(
+//               future: studentDoc.reference.collection('fees').get(),
+//               builder: (context, feeSnapshot) {
+//                 if (!feeSnapshot.hasData) {
+//                   return const ListTile(title: Text("Loading fees..."));
+//                 }
+
+//                 final feesDocs = feeSnapshot.data!.docs;
+
+//                 double totalAmount = 0, paidAmount = 0;
+//                 bool showStudent = filterMode == "all" || filterMode == "total";
+
+//                 final now = DateTime.now();
+//                 final startOfWeek = now.subtract(
+//                   Duration(days: now.weekday - 1),
+//                 );
+//                 final endOfWeek = startOfWeek.add(const Duration(days: 6));
+
+//                 for (var feeDoc in feesDocs) {
+//                   final fee = feeDoc.data() as Map<String, dynamic>;
+//                   final amount = (fee['amount'] ?? 0).toDouble();
+//                   final paid = (fee['paidAmount'] ?? 0).toDouble();
+//                   totalAmount += amount;
+//                   paidAmount += paid;
+
+//                   // Filter logic
+//                   switch (filterMode) {
+//                     case "paid":
+//                       final paidDate = (fee['paidDate'] as Timestamp?)
+//                           ?.toDate();
+//                       if (paidDate != null &&
+//                           paidDate.isAfter(startOfWeek) &&
+//                           paidDate.isBefore(endOfWeek)) {
+//                         showStudent = true;
+//                       }
+//                       break;
+//                     case "unpaid":
+//                       final currMonth =
+//                           "${now.year}-${now.month.toString().padLeft(2, '0')}";
+//                       if ((amount - paid) > 0 && fee['month'] == currMonth)
+//                         showStudent = true;
+//                       break;
+//                     case "overdue":
+//                       final currMonth =
+//                           "${now.year}-${now.month.toString().padLeft(2, '0')}";
+//                       if ((amount - paid) > 0 && fee['month'] != currMonth)
+//                         showStudent = true;
+//                       break;
+//                   }
+//                 }
+
+//                 if (!showStudent) return const SizedBox.shrink();
+
+//                 final balance = totalAmount - paidAmount;
+
+//                 return Card(
+//                   color: const Color(0xFF2E2E3C),
+//                   margin: const EdgeInsets.symmetric(
+//                     horizontal: 12,
+//                     vertical: 6,
+//                   ),
+//                   shape: RoundedRectangleBorder(
+//                     borderRadius: BorderRadius.circular(16),
+//                   ),
+//                   child: ListTile(
+//                     title: Text(
+//                       name,
+//                       style: const TextStyle(
+//                         color: Colors.white,
+//                         fontWeight: FontWeight.bold,
+//                       ),
+//                     ),
+//                     subtitle: Text(
+//                       "Paid: ₹${paidAmount.toStringAsFixed(0)} | Balance: ₹${balance.toStringAsFixed(0)}",
+//                       style: const TextStyle(color: Colors.white70),
+//                     ),
+//                   ),
+//                 );
+//               },
+//             );
+//           },
+//         );
+//       },
+//     );
+//   }
+// }
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'student_fee_dialog.dart';
 
 class StudentList extends StatelessWidget {
   final String academyUid;
-  final String filterMode; // "all", "paid", "unpaid", "overdue"
+  final String filterMode;
   final String searchQuery;
   final bool sortAsc;
 
   const StudentList({
     super.key,
     required this.academyUid,
-    this.filterMode = "all",
-    this.searchQuery = "",
-    this.sortAsc = true,
+    required this.filterMode,
+    required this.searchQuery,
+    required this.sortAsc,
   });
 
   @override
@@ -23,123 +175,129 @@ class StudentList extends StatelessWidget {
         .doc(academyUid)
         .collection("students");
 
-    final feesRef = FirebaseFirestore.instance
-        .collection("academies")
-        .doc(academyUid)
-        .collection("fees");
-
     return StreamBuilder<QuerySnapshot>(
       stream: studentsRef.snapshots(),
-      builder: (context, studentSnap) {
-        if (!studentSnap.hasData) {
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        List<QueryDocumentSnapshot> students = studentSnap.data!.docs;
+        List<QueryDocumentSnapshot> students = snapshot.data!.docs;
 
-        // 🔍 Search filter
+        // Apply search filter
         if (searchQuery.isNotEmpty) {
           students = students.where((doc) {
-            final name = (doc['name'] ?? '').toString().toLowerCase();
+            final data = doc.data() as Map<String, dynamic>;
+            final name = (data['name'] ?? "").toString().toLowerCase();
             return name.contains(searchQuery.toLowerCase());
           }).toList();
         }
 
-        // ↕ Sort
+        if (students.isEmpty) {
+          return const Center(
+            child: Text(
+              "No students found",
+              style: TextStyle(color: Colors.white70),
+            ),
+          );
+        }
+
+        // Sort students alphabetically
         students.sort((a, b) {
-          final nameA = (a['name'] ?? '').toString().toLowerCase();
-          final nameB = (b['name'] ?? '').toString().toLowerCase();
+          final nameA = (a['name'] ?? "").toString().toLowerCase();
+          final nameB = (b['name'] ?? "").toString().toLowerCase();
           return sortAsc ? nameA.compareTo(nameB) : nameB.compareTo(nameA);
         });
 
-        if (students.isEmpty) {
-          return const Center(child: Text("No students found"));
-        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(8),
+          itemCount: students.length,
+          itemBuilder: (context, index) {
+            final studentDoc = students[index];
+            final data = studentDoc.data() as Map<String, dynamic>;
+            final name = data['name'] ?? "Unnamed";
 
-        return StreamBuilder<QuerySnapshot>(
-          stream: feesRef.snapshots(),
-          builder: (context, feeSnap) {
-            if (!feeSnap.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final fees = feeSnap.data!.docs;
-            final now = DateTime.now();
-            final currentMonth =
-                "${now.year}-${now.month.toString().padLeft(2, '0')}";
-
-            List<QueryDocumentSnapshot> filteredStudents = [];
-
-            for (var student in students) {
-              final studentId = student.id;
-              final studentFees = fees
-                  .where((f) => (f['studentId'] ?? '') == studentId)
-                  .toList();
-
-              bool hasPaid = false;
-              bool hasUnpaid = false;
-              bool hasOverdue = false;
-
-              for (var fee in studentFees) {
-                final data = fee.data() as Map<String, dynamic>;
-                final amount = (data['amount'] ?? 0).toDouble();
-                final paidAmount = (data['paidAmount'] ?? 0).toDouble();
-                final balance = amount - paidAmount;
-                final month = data['month'] ?? "";
-
-                if (balance <= 0) {
-                  hasPaid = true;
-                } else if (month == currentMonth) {
-                  hasUnpaid = true;
-                } else {
-                  hasOverdue = true;
+            return StreamBuilder<QuerySnapshot>(
+              // ✅ Stream all fee docs live (no per-call get())
+              stream: studentDoc.reference.collection('fees').snapshots(),
+              builder: (context, feeSnapshot) {
+                if (!feeSnapshot.hasData) {
+                  return const ListTile(title: Text("Loading fees..."));
                 }
-              }
 
-              // Filter by summary mode
-              if (filterMode == "all") filteredStudents.add(student);
-              if (filterMode == "paid" && hasPaid) {
-                filteredStudents.add(student);
-              }
-              if (filterMode == "unpaid" && hasUnpaid) {
-                filteredStudents.add(student);
-              }
-              if (filterMode == "overdue" && hasOverdue) {
-                filteredStudents.add(student);
-              }
-            }
+                final feesDocs = feeSnapshot.data!.docs;
 
-            if (filteredStudents.isEmpty) {
-              return const Center(child: Text("No students found"));
-            }
+                double totalAmount = 0, paidAmount = 0;
+                bool showStudent = filterMode == "all" || filterMode == "total";
 
-            return ListView.builder(
-              itemCount: filteredStudents.length,
-              itemBuilder: (context, index) {
-                final student = filteredStudents[index];
-                final name = student['name'] ?? "Unnamed";
-                final studentId = student.id;
+                final now = DateTime.now();
+                final startOfWeek = now.subtract(
+                  Duration(days: now.weekday - 1),
+                );
+                final endOfWeek = startOfWeek.add(const Duration(days: 6));
+
+                for (var feeDoc in feesDocs) {
+                  final fee = feeDoc.data() as Map<String, dynamic>;
+                  final amount = (fee['amount'] ?? 0).toDouble();
+                  final paid = (fee['paidAmount'] ?? 0).toDouble();
+                  totalAmount += amount;
+                  paidAmount += paid;
+
+                  // Skip further checks if already matched
+                  if (showStudent) continue;
+
+                  switch (filterMode) {
+                    case "paid":
+                      final paidDate = (fee['paidDate'] as Timestamp?)
+                          ?.toDate();
+                      if (paidDate != null &&
+                          paidDate.isAfter(startOfWeek) &&
+                          paidDate.isBefore(endOfWeek)) {
+                        showStudent = true;
+                      }
+                      break;
+                    case "unpaid":
+                      final currMonth =
+                          "${now.year}-${now.month.toString().padLeft(2, '0')}";
+                      if ((amount - paid) > 0 && fee['month'] == currMonth) {
+                        showStudent = true;
+                      }
+                      break;
+                    case "overdue":
+                      final currMonth =
+                          "${now.year}-${now.month.toString().padLeft(2, '0')}";
+                      if ((amount - paid) > 0 && fee['month'] != currMonth) {
+                        showStudent = true;
+                      }
+                      break;
+                  }
+                }
+
+                if (!showStudent) return const SizedBox.shrink();
+
+                final balance = totalAmount - paidAmount;
 
                 return Card(
+                  color: const Color(0xFF2E2E3C),
                   margin: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: ListTile(
-                    leading: const Icon(Icons.person),
-                    title: Text(name),
-                    subtitle: Text("ID: $studentId"),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => StudentFeeDialog(
-                          academyUid: academyUid,
-                          studentId: studentId,
-                          studentName: name,
-                        ),
-                      );
-                    },
+                    title: Text(
+                      name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text(
+                      "Paid: ₹${paidAmount.toStringAsFixed(0)} | Balance: ₹${balance.toStringAsFixed(0)}",
+                      style: const TextStyle(color: Colors.white70),
+                    ),
                   ),
                 );
               },
